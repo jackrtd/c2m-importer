@@ -1,16 +1,16 @@
 // backend/src/controllers/userController.js
-const { Topic, UserTopicPermission, ColumnMapping, ImportLog, FailedImportRow, DeletionLog, User, sequelize } = require('../models'); // Ensure User is included here
+const { Topic, UserTopicPermission, ColumnMapping, ImportLog, FailedImportRow, DeletionLog, User, sequelize } = require('../models');
 const logService = require('../services/logService');
 const dbService = require('../services/dbService'); 
 const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid'); 
 
-// Helper functions for date formatting (can be moved to a utility file if used elsewhere)
+// Helper functions for date formatting
 function formatDateTimeForMySQL(isoString) {
     if (!isoString) return null;
     try {
         const date = new Date(isoString);
-        if (isNaN(date.getTime())) return isoString; // Return original if invalid date string
+        if (isNaN(date.getTime())) return isoString; 
 
         const year = date.getFullYear();
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -21,7 +21,7 @@ function formatDateTimeForMySQL(isoString) {
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     } catch (e) {
         console.warn(`Could not parse date string for DATETIME formatting: ${isoString}`, e);
-        return isoString; // Return original on error
+        return isoString; 
     }
 }
 
@@ -29,7 +29,7 @@ function formatDateForMySQL(isoString) {
     if (!isoString) return null;
      try {
         const date = new Date(isoString);
-        if (isNaN(date.getTime())) return isoString; // Return original if invalid date string
+        if (isNaN(date.getTime())) return isoString; 
 
         const year = date.getFullYear();
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -37,16 +37,10 @@ function formatDateForMySQL(isoString) {
         return `${year}-${month}-${day}`;
     } catch (e) {
         console.warn(`Could not parse date string for DATE formatting: ${isoString}`, e);
-        return isoString; // Return original on error
+        return isoString; 
     }
 }
 
-
-/**
- * @desc    Get topics available for the logged-in user to import
- * @route   GET /api/user/topics
- * @access  Private/User
- */
 const getAvailableTopics = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -63,9 +57,7 @@ const getAvailableTopics = async (req, res, next) => {
         }]
       }]
     });
-
     const availableTopics = permissions.map(p => p.Topic).filter(topic => topic != null); 
-
     await logService.logAction(userId, 'USER_GET_AVAILABLE_TOPICS', { count: availableTopics.length }, req.ip);
     res.json({ success: true, topics: availableTopics });
   } catch (error) {
@@ -73,11 +65,6 @@ const getAvailableTopics = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get imported data for a specific topic that the user has permission to view
- * @route   GET /api/user/topics/:topicId/data
- * @access  Private/User
- */
 const getImportedDataByTopic = async (req, res, next) => {
   const { topicId } = req.params;
   const userId = req.user.id;
@@ -86,7 +73,7 @@ const getImportedDataByTopic = async (req, res, next) => {
   let limit = parseInt(req.query.limit, 10);
 
   page = (isNaN(page) || page < 1) ? 1 : page;
-  limit = (isNaN(limit) || limit < 1) ? 10 : limit; // Default limit to 10 if invalid
+  limit = (isNaN(limit) || limit < 1) ? 10 : limit; 
 
   const { sortBy, sortOrder = 'ASC', filters } = req.query; 
   const offset = (page - 1) * limit;
@@ -116,22 +103,22 @@ const getImportedDataByTopic = async (req, res, next) => {
             parsedFilters = JSON.parse(filters);
             if (!Array.isArray(parsedFilters)) parsedFilters = [];
         } catch (e) {
-            console.warn("Invalid filters format:", filters);
+            console.warn("Invalid filters format for getImportedDataByTopic:", filters);
         }
     }
 
     const dataOptions = {
-        page: page, // Use sanitized page
-        limit: limit, // Use sanitized limit
+        page: page, 
+        limit: limit, 
         sortBy: sortBy, 
         sortOrder: sortOrder,
         filters: parsedFilters,
-        offset: offset // Pass calculated offset
+        offset: offset 
     };
 
     const result = await dbService.getData(topicConfig.toJSON(), columnMappings.map(cm => cm.toJSON()), dataOptions);
 
-    await logService.logAction(userId, 'USER_VIEW_TOPIC_DATA', { topicId, page, limit, count: result.data.length }, req.ip);
+    await logService.logAction(userId, 'USER_VIEW_TOPIC_DATA', { topicId, page, limit, count: result.data ? result.data.length : 0 }, req.ip);
     res.json({ 
         success: true, 
         ...result, 
@@ -151,11 +138,6 @@ const getImportedDataByTopic = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Delete imported records for a specific topic
- * @route   POST /api/user/topics/:topicId/data/delete
- * @access  Private/User
- */
 const deleteImportedData = async (req, res, next) => {
   const { topicId } = req.params;
   const userId = req.user.id;
@@ -247,12 +229,6 @@ const deleteImportedData = async (req, res, next) => {
   }
 };
 
-
-/**
- * @desc    Rollback deleted data for a specific topic based on deletion batch ID or individual log IDs
- * @route   POST /api/user/topics/:topicId/data/rollback
- * @access  Private/User (or Admin, depending on policy)
- */
 const rollbackDeletedData = async (req, res, next) => {
     const { topicId } = req.params;
     const userId = req.user.id; 
@@ -297,15 +273,14 @@ const rollbackDeletedData = async (req, res, next) => {
             return res.status(400).json({ message: 'Column mappings for this topic are missing. Cannot perform rollback.' });
         }
         
-        // Prepare data for re-insertion, formatting dates based on columnMappings
         const dataToReinsert = logsToRollback.map(log => {
-            const originalRecordData = log.deleted_record_data; // This is an object
+            const originalRecordData = log.deleted_record_data; 
             const formattedRecordData = {};
             for (const key in originalRecordData) {
                 if (originalRecordData.hasOwnProperty(key)) {
                     const mapping = columnMappings.find(m => m.target_column_name === key);
                     let value = originalRecordData[key];
-                    if (mapping && value !== null && value !== undefined) {
+                    if (mapping && value !== null && value !== undefined) { 
                         const dataTypeUpper = mapping.data_type ? mapping.data_type.toUpperCase() : '';
                         if (dataTypeUpper.includes('DATE') && !dataTypeUpper.includes('DATETIME') && !dataTypeUpper.includes('TIMESTAMP')) {
                             value = formatDateForMySQL(value);
@@ -372,12 +347,6 @@ const rollbackDeletedData = async (req, res, next) => {
     }
 };
 
-
-/**
- * @desc    Get user's own import logs
- * @route   GET /api/user/logs/import
- * @access  Private/User
- */
 const getMyImportLogs = async (req, res, next) => {
   const userId = req.user.id;
   try {
@@ -394,27 +363,53 @@ const getMyImportLogs = async (req, res, next) => {
     if (topicId) whereClause.topic_id = topicId;
     if (status) whereClause.status = status;
     if (startDate && endDate) {
-        whereClause.created_at = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+        const parsedStartDate = new Date(startDate);
+        const parsedEndDate = new Date(endDate);
+        if (!isNaN(parsedStartDate.getTime()) && !isNaN(parsedEndDate.getTime())) {
+             whereClause.created_at = { [Op.between]: [parsedStartDate, parsedEndDate] };
+        } else {
+            console.warn("Invalid date format for user import log filter:", {startDate, endDate});
+        }
     } else if (startDate) {
-        whereClause.created_at = { [Op.gte]: new Date(startDate) };
+         const parsedStartDate = new Date(startDate);
+        if (!isNaN(parsedStartDate.getTime())) {
+            whereClause.created_at = { [Op.gte]: parsedStartDate };
+        } else {
+            console.warn("Invalid start date format for user import log filter:", startDate);
+        }
     } else if (endDate) {
-        whereClause.created_at = { [Op.lte]: new Date(endDate) };
+        const parsedEndDate = new Date(endDate);
+        if (!isNaN(parsedEndDate.getTime())) {
+            whereClause.created_at = { [Op.lte]: parsedEndDate };
+        } else {
+            console.warn("Invalid end date format for user import log filter:", endDate);
+        }
     }
 
     const { count, rows } = await ImportLog.findAndCountAll({
       where: whereClause,
       include: [
         { model: Topic, as: 'topic', attributes: ['id', 'name'] },
-        { model: FailedImportRow, as: 'failedRows', attributes: ['id'] }
+        { 
+            model: FailedImportRow, 
+            as: 'failedRows', 
+            attributes: ['id'], // Only fetch ID for count, or more if needed for display
+            required: false // LEFT JOIN
+        }
       ],
       order: [['created_at', sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
       limit: limit, 
       offset: offset,
+      distinct: true, // Important for correct count with hasMany include
+      // col: 'ImportLog.id' // Usually inferred if PK is 'id'
     });
 
     const logsWithFailedCount = rows.map(log => {
         const logJSON = log.toJSON();
-        logJSON.failedRowsCount = logJSON.failedRows ? logJSON.failedRows.length : 0;
+        // If 'failedRows' is included just for count, backend might not send the full array.
+        // It's better if backend calculates this count or if frontend relies on `log.failed_records`
+        logJSON.failedRowsCount = log.failed_records || (logJSON.failedRows ? logJSON.failedRows.length : 0);
+        // delete logJSON.failedRows; // Clean up if not needed in response
         return logJSON;
     });
 
@@ -431,11 +426,6 @@ const getMyImportLogs = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get details of failed rows for a specific import log owned by the user
- * @route   GET /api/user/logs/import/:importLogId/failed-rows
- * @access  Private/User
- */
 const getFailedRowsForImportLog = async (req, res, next) => {
     const userId = req.user.id;
     const { importLogId } = req.params;
@@ -479,11 +469,6 @@ const getFailedRowsForImportLog = async (req, res, next) => {
     }
 };
 
-/**
- * @desc    Get deletion logs for a specific topic that the user has permission to view/manage
- * @route   GET /api/user/topics/:topicId/deletion-logs
- * @access  Private/User (or Admin)
- */
 const getDeletionLogsForTopic = async (req, res, next) => {
   const { topicId } = req.params;
   const userId = req.user.id; 
@@ -528,7 +513,8 @@ const getDeletionLogsForTopic = async (req, res, next) => {
       ],
       limit: limit, 
       offset: offset,
-      order: order
+      order: order,
+      distinct: true // Good for consistency, though current include is belongsTo
     });
 
     await logService.logAction(userId, 'GET_DELETION_LOGS_SUCCESS', { topicId, page, limit, count: rows.length }, req.ip);

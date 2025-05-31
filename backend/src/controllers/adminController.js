@@ -1,26 +1,25 @@
 // backend/src/controllers/adminController.js
-const { User, Topic, ColumnMapping, UserTopicPermission, SystemLog, ImportLog, FailedImportRow, DeletionLog, sequelize } = require('../models'); // Added FailedImportRow
+const { User, Topic, ColumnMapping, UserTopicPermission, SystemLog, ImportLog, FailedImportRow, DeletionLog, sequelize } = require('../models'); // FailedImportRow is included
 const logService = require('../services/logService');
 const dbService = require('../services/dbService'); 
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize'); // Make sure Op is required for filtering
 
 // --- User Management ---
-
-/**
- * @desc    Get all users (admin only)
- * @route   GET /api/admin/users
- * @access  Private/Admin
- */
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, role, is_active, search } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+    page = (isNaN(page) || page < 1) ? 1 : page;
+    limit = (isNaN(limit) || limit < 1) ? 10 : limit;
+    
+    const { role, is_active, search } = req.query;
+    const offset = (page - 1) * limit;
     
     const whereClause = {};
     if (role) whereClause.role = role;
     if (is_active !== undefined) whereClause.is_active = (is_active === 'true' || is_active === '1');
     if (search) {
-        const { Op } = require('sequelize');
         whereClause[Op.or] = [
             { username: { [Op.like]: `%${search}%` } },
             { email: { [Op.like]: `%${search}%` } }
@@ -30,7 +29,7 @@ exports.getAllUsers = async (req, res, next) => {
     const { count, rows } = await User.findAndCountAll({
       attributes: { exclude: ['password'] }, 
       where: whereClause,
-      limit: parseInt(limit),
+      limit: limit,
       offset: offset,
       order: [['created_at', 'DESC']]
     });
@@ -40,7 +39,7 @@ exports.getAllUsers = async (req, res, next) => {
       success: true,
       count,
       totalPages: Math.ceil(count / limit),
-      currentPage: parseInt(page),
+      currentPage: page,
       users: rows
     });
   } catch (error) {
@@ -48,11 +47,6 @@ exports.getAllUsers = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get a single user by ID (admin only)
- * @route   GET /api/admin/users/:userId
- * @access  Private/Admin
- */
 exports.getUserById = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.userId, {
@@ -69,18 +63,13 @@ exports.getUserById = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Create a new user (admin only)
- * @route   POST /api/admin/users
- * @access  Private/Admin
- */
 exports.createUser = async (req, res, next) => {
   const { username, email, password, role, is_active } = req.body;
   if (!username || !email || !password || !role) {
     return res.status(400).json({ message: 'Please provide username, email, password, and role.' });
   }
   try {
-    const newUser = await User.create({ username, email, password, role, is_active });
+    const newUser = await User.create({ username, email, password, role, is_active: is_active !== undefined ? is_active : true });
     const userResponse = { ...newUser.toJSON() };
     delete userResponse.password; 
 
@@ -96,11 +85,6 @@ exports.createUser = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Update a user (admin only)
- * @route   PUT /api/admin/users/:userId
- * @access  Private/Admin
- */
 exports.updateUser = async (req, res, next) => {
   const { userId } = req.params;
   const { username, email, role, is_active, password } = req.body; 
@@ -138,11 +122,6 @@ exports.updateUser = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Delete a user (admin only)
- * @route   DELETE /api/admin/users/:userId
- * @access  Private/Admin
- */
 exports.deleteUser = async (req, res, next) => {
   const { userId } = req.params;
   try {
@@ -167,12 +146,6 @@ exports.deleteUser = async (req, res, next) => {
 
 
 // --- Topic Management ---
-
-/**
- * @desc    Create a new import topic
- * @route   POST /api/admin/topics
- * @access  Private/Admin
- */
 exports.createTopic = async (req, res, next) => {
   const {
     name, target_db_host, target_db_port, target_db_name,
@@ -193,7 +166,6 @@ exports.createTopic = async (req, res, next) => {
         }
     }
   }
-
 
   const transaction = await sequelize.transaction();
   try {
@@ -223,7 +195,6 @@ exports.createTopic = async (req, res, next) => {
         }
     }
 
-
     await transaction.commit();
     await logService.logAction(req.user.id, 'ADMIN_CREATE_TOPIC', { topicId: newTopic.id, name: newTopic.name }, req.ip);
     res.status(201).json({ success: true, message: 'Topic created successfully', topic: newTopic, column_mappings: createdMappings });
@@ -239,11 +210,6 @@ exports.createTopic = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get all topics
- * @route   GET /api/admin/topics
- * @access  Private/Admin
- */
 exports.getAllTopics = async (req, res, next) => {
   try {
     const topics = await Topic.findAll({
@@ -260,11 +226,6 @@ exports.getAllTopics = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get a single topic by ID
- * @route   GET /api/admin/topics/:topicId
- * @access  Private/Admin
- */
 exports.getTopicById = async (req, res, next) => {
   try {
     const topic = await Topic.findByPk(req.params.topicId, {
@@ -285,11 +246,6 @@ exports.getTopicById = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Update a topic and its column mappings
- * @route   PUT /api/admin/topics/:topicId
- * @access  Private/Admin
- */
 exports.updateTopic = async (req, res, next) => {
   const { topicId } = req.params;
   const {
@@ -349,7 +305,6 @@ exports.updateTopic = async (req, res, next) => {
         }
     }
 
-
     await transaction.commit();
     await logService.logAction(req.user.id, 'ADMIN_UPDATE_TOPIC', { topicId: topic.id, updatedFields: Object.keys(req.body) }, req.ip);
     
@@ -369,11 +324,6 @@ exports.updateTopic = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Delete a topic
- * @route   DELETE /api/admin/topics/:topicId
- * @access  Private/Admin
- */
 exports.deleteTopic = async (req, res, next) => {
   const { topicId } = req.params;
   const transaction = await sequelize.transaction();
@@ -398,12 +348,6 @@ exports.deleteTopic = async (req, res, next) => {
 
 
 // --- User Topic Permissions Management ---
-
-/**
- * @desc    Assign/update permissions for a user on a topic
- * @route   POST /api/admin/permissions
- * @access  Private/Admin
- */
 exports.manageUserTopicPermission = async (req, res, next) => {
   const { userId, topicId, can_import, can_view_data, can_delete_data } = req.body;
 
@@ -425,7 +369,6 @@ exports.manageUserTopicPermission = async (req, res, next) => {
         can_delete_data: can_delete_data !== undefined ? can_delete_data : (permission ? permission.can_delete_data : false),
     };
 
-
     if (permission) {
       permission.can_import = permissionDetails.can_import;
       permission.can_view_data = permissionDetails.can_view_data;
@@ -445,11 +388,6 @@ exports.manageUserTopicPermission = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Remove all permissions for a user on a topic
- * @route   DELETE /api/admin/permissions/:userId/:topicId
- * @access  Private/Admin
- */
 exports.removeUserTopicPermission = async (req, res, next) => {
     const { userId, topicId } = req.params;
     try {
@@ -471,35 +409,52 @@ exports.removeUserTopicPermission = async (req, res, next) => {
 
 
 // --- Log Viewing ---
-
-/**
- * @desc    Get system logs (admin only)
- * @route   GET /api/admin/logs/system
- * @access  Private/Admin
- */
 exports.getSystemLogs = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, userId, actionType, status, startDate, endDate, sortOrder = 'DESC' } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+    page = (isNaN(page) || page < 1) ? 1 : page;
+    limit = (isNaN(limit) || limit < 1) ? 20 : limit;
+    
+    const { userId, actionType, status, startDate, endDate, sortOrder = 'DESC' } = req.query;
+    const offset = (page - 1) * limit;
     
     const whereClause = {};
     if (userId) whereClause.user_id = userId;
-    if (actionType) whereClause.action_type = { [require('sequelize').Op.like]: `%${actionType}%` };
+    if (actionType) whereClause.action_type = { [Op.like]: `%${actionType}%` };
     if (status) whereClause.status = status;
     if (startDate && endDate) {
-        whereClause.created_at = { [require('sequelize').Op.between]: [new Date(startDate), new Date(endDate)] };
+        const parsedStartDate = new Date(startDate);
+        const parsedEndDate = new Date(endDate);
+        if (!isNaN(parsedStartDate.getTime()) && !isNaN(parsedEndDate.getTime())) {
+             whereClause.created_at = { [Op.between]: [parsedStartDate, parsedEndDate] };
+        } else {
+            console.warn("Invalid date format for system log filter:", {startDate, endDate});
+        }
     } else if (startDate) {
-        whereClause.created_at = { [require('sequelize').Op.gte]: new Date(startDate) };
+        const parsedStartDate = new Date(startDate);
+        if (!isNaN(parsedStartDate.getTime())) {
+            whereClause.created_at = { [Op.gte]: parsedStartDate };
+        } else {
+             console.warn("Invalid start date format for system log filter:", startDate);
+        }
     } else if (endDate) {
-        whereClause.created_at = { [require('sequelize').Op.lte]: new Date(endDate) };
+        const parsedEndDate = new Date(endDate);
+        if (!isNaN(parsedEndDate.getTime())) {
+            whereClause.created_at = { [Op.lte]: parsedEndDate };
+        } else {
+             console.warn("Invalid end date format for system log filter:", endDate);
+        }
     }
 
     const { count, rows } = await SystemLog.findAndCountAll({
       where: whereClause,
       include: [{ model: User, as: 'user', attributes: ['id', 'username'] }],
       order: [['created_at', sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
-      limit: parseInt(limit),
+      limit: limit,
       offset: offset,
+      distinct: true, // Added to ensure correct count with includes
+      // col: 'SystemLog.id' // Be specific if 'id' is ambiguous
     });
 
     await logService.logAction(req.user.id, 'ADMIN_VIEW_SYSTEM_LOGS', { query: req.query, count: rows.length }, req.ip);
@@ -507,7 +462,7 @@ exports.getSystemLogs = async (req, res, next) => {
         success: true,
         count,
         totalPages: Math.ceil(count / limit),
-        currentPage: parseInt(page),
+        currentPage: page,
         logs: rows
     });
   } catch (error) {
@@ -515,15 +470,16 @@ exports.getSystemLogs = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Get import logs (admin only)
- * @route   GET /api/admin/logs/import
- * @access  Private/Admin
- */
 exports.getImportLogs = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, userId, topicId, status, startDate, endDate, sortOrder = 'DESC' } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+
+    page = (isNaN(page) || page < 1) ? 1 : page;
+    limit = (isNaN(limit) || limit < 1) ? 20 : limit; // Default limit 20
+
+    const { userId, topicId, status, startDate, endDate, sortOrder = 'DESC' } = req.query;
+    const offset = (page - 1) * limit;
 
     const whereClause = {};
     if (userId) whereClause.user_id = userId;
@@ -533,21 +489,21 @@ exports.getImportLogs = async (req, res, next) => {
         const parsedStartDate = new Date(startDate);
         const parsedEndDate = new Date(endDate);
         if (!isNaN(parsedStartDate.getTime()) && !isNaN(parsedEndDate.getTime())) {
-            whereClause.created_at = { [require('sequelize').Op.between]: [parsedStartDate, parsedEndDate] };
+            whereClause.created_at = { [Op.between]: [parsedStartDate, parsedEndDate] };
         } else {
             console.warn("Invalid date format for import log filter:", {startDate, endDate});
         }
     } else if (startDate) {
         const parsedStartDate = new Date(startDate);
         if (!isNaN(parsedStartDate.getTime())) {
-            whereClause.created_at = { [require('sequelize').Op.gte]: parsedStartDate };
+            whereClause.created_at = { [Op.gte]: parsedStartDate };
         } else {
             console.warn("Invalid start date format for import log filter:", startDate);
         }
     } else if (endDate) {
         const parsedEndDate = new Date(endDate);
          if (!isNaN(parsedEndDate.getTime())) {
-            whereClause.created_at = { [require('sequelize').Op.lte]: parsedEndDate };
+            whereClause.created_at = { [Op.lte]: parsedEndDate };
         } else {
             console.warn("Invalid end date format for import log filter:", endDate);
         }
@@ -558,22 +514,32 @@ exports.getImportLogs = async (req, res, next) => {
       include: [
         { model: User, as: 'importer', attributes: ['id', 'username'] },
         { model: Topic, as: 'topic', attributes: ['id', 'name'] },
-        { model: FailedImportRow, as: 'failedRows', attributes: ['id', 'row_number_in_file', 'error_message'] } 
+        { 
+          model: FailedImportRow, 
+          as: 'failedRows', 
+          attributes: ['id', 'row_number_in_file', 'error_message'],
+          required: false // Use left join for failedRows so logs without failed rows are still returned
+        } 
       ],
       order: [['created_at', sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC']],
-      limit: parseInt(limit),
+      limit: limit,
       offset: offset,
+      distinct: true, // To ensure correct count when including hasMany (failedRows)
+      // col: 'ImportLog.id' // Be specific for COUNT(DISTINCT "ImportLog"."id")
+                            // Sequelize usually infers this from the main model if primary key is 'id'
     });
-    await logService.logAction(req.user.id, 'ADMIN_VIEW_IMPORT_LOGS', { query: req.query, count: rows.length }, req.ip);
+    await logService.logAction(req.user.id, 'ADMIN_VIEW_IMPORT_LOGS', { query: req.query, count: rows.length }, req.ip); // Log based on returned rows, or use `count` for total matched.
      res.json({
         success: true,
-        count,
+        count, // This is the total count of distinct ImportLog entries matching the whereClause
         totalPages: Math.ceil(count / limit),
-        currentPage: parseInt(page),
-        logs: rows
+        currentPage: page,
+        logs: rows // These are the paginated rows
     });
   } catch (error) {
-    console.error("Error in getImportLogs (admin):", error); // Added console.error for backend debugging
+    console.error("Error in getImportLogs (admin):", error); 
     next(error);
   }
 };
+
+module.exports = exports; // Export all functions assigned to exports
