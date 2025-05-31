@@ -69,7 +69,7 @@ exports.getAllUsers = async (req, res, next) => {
         whereClause.role = role;
     }
     if (is_active !== undefined) {
-        // Convert string 'true'/'false' to boolean
+        // Convert string 'true'/'false' to boolean or handle as empty string
         whereClause.is_active = (String(is_active).toLowerCase() === 'true' || is_active === '1' || is_active === true || is_active == '');
     }
     if (search && search.trim() !== '') { // Ensure search term is not empty
