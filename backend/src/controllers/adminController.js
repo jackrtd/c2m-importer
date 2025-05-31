@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize'); // Make sure Op is required for filtering
 
 // --- User Management ---
+/*
 exports.getAllUsers = async (req, res, next) => {
   try {
     let page = parseInt(req.query.page, 10);
@@ -43,6 +44,66 @@ exports.getAllUsers = async (req, res, next) => {
       users: rows
     });
   } catch (error) {
+    next(error);
+  }
+};
+*/
+/**
+ * @desc    Get all users (admin only) with search, filter, and pagination
+ * @route   GET /api/admin/users
+ * @access  Private/Admin
+ */
+exports.getAllUsers = async (req, res, next) => {
+  try {
+    let page = parseInt(req.query.page, 10);
+    let limit = parseInt(req.query.limit, 10);
+
+    page = (isNaN(page) || page < 1) ? 1 : page;
+    limit = (isNaN(limit) || limit < 1) ? 10 : limit;
+    
+    const { role, is_active, search } = req.query; // 'search' will be the search term
+    const offset = (page - 1) * limit;
+    
+    const whereClause = {};
+    if (role) {
+        whereClause.role = role;
+    }
+    if (is_active !== undefined) {
+        // Convert string 'true'/'false' to boolean
+        whereClause.is_active = (String(is_active).toLowerCase() === 'true' || is_active === '1' || is_active === true || is_active == '');
+    }
+    if (search && search.trim() !== '') { // Ensure search term is not empty
+        const searchTerm = `%${search.trim()}%`;
+        whereClause[Op.or] = [
+            { username: { [Op.like]: searchTerm } },
+            { email: { [Op.like]: searchTerm } }
+        ];
+        console.log("Admin Controller: Searching users with term -", searchTerm); // For debugging
+    } else {
+        console.log("Admin Controller: Getting all users (no search term or empty).");
+    }
+
+    console.log("Admin Controller: Final whereClause for users:", JSON.stringify(whereClause)); // For debugging
+
+    const { count, rows } = await User.findAndCountAll({
+      attributes: { exclude: ['password'] }, 
+      where: whereClause,
+      limit: limit,
+      offset: offset,
+      order: [['created_at', 'DESC']],
+      distinct: true // Important if you ever add includes with hasMany that might inflate count
+    });
+
+    await logService.logAction(req.user.id, 'ADMIN_GET_ALL_USERS', { query: req.query, returned_count: rows.length, total_matched_count: count }, req.ip);
+    res.json({
+      success: true,
+      count, // Total number of users matching the whereClause
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      users: rows // Users for the current page
+    });
+  } catch (error) {
+    console.error("Admin Controller: Error in getAllUsers -", error); // For debugging
     next(error);
   }
 };
