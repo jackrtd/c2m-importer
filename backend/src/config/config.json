@@ -1,0 +1,46 @@
+// backend/src/config/config.json
+// This file is primarily used by Sequelize CLI.
+// Make sure the environment variables are available when running CLI commands.
+// You might need to use a package like `dotenv-cli` for that, e.g., `dotenv sequelize db:migrate`
+{
+  "development": {
+    "username": "root",
+    "password": "yoursecurepassword",
+    "database": "data_import_system",
+    "host": "system_mysql_db",
+    "dialect": "mysql",
+    "port": 3306,
+    "logging": true
+  },
+  "test": {
+    "username": "root",
+    "password": "yoursecurepassword",
+    "database": "data_import_system_test",
+    "host": "system_mysql_db",
+    "dialect": "mysql",
+    "port": 3306,
+    "logging": false
+  },
+  "production": {
+    "username": "${SYSTEM_DB_USER}",
+    "password": "${SYSTEM_DB_PASSWORD}",
+    "database": "${SYSTEM_DB_NAME}",
+    "host": "${SYSTEM_DB_HOST}",
+    "dialect": "mysql",
+    "port": "${SYSTEM_DB_PORT}",
+    "logging": false,
+    "pool": {
+      "max": 5,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
+  }
+}
+// Note: For production, it's better to use environment variables directly in db.js
+// and ensure Sequelize CLI can access them if you use migrations in production.
+// The above uses placeholders like ${SYSTEM_DB_USER} which Sequelize CLI might not resolve directly
+// without additional setup (like using a .sequelizerc file to load dotenv).
+// For simplicity in this project, we'll primarily rely on the db.js configuration
+// and the init.sql script for schema setup with Docker.
+// If you plan to use Sequelize migrations extensively, refine this CLI config.

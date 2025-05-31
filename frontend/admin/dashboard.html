@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - ระบบนำเข้าข้อมูล</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            background-color: #343a40;
+            padding-top: 1rem;
+            z-index: 1030; /* Ensure sidebar is above content but below modals */
+        }
+        .sidebar .nav-link {
+            color: #adb5bd;
+        }
+        .sidebar .nav-link.active,
+        .sidebar .nav-link:hover {
+            color: #fff;
+            background-color: #495057;
+        }
+        .sidebar .nav-link .bi {
+            margin-right: 0.5rem;
+        }
+        .content {
+            margin-left: 280px;
+            padding: 1rem 2rem 2rem 2rem; /* Adjusted padding */
+        }
+        .navbar-custom {
+            margin-left: 280px;
+            /* position: sticky; */ /* Removed sticky to simplify, can be added back if needed */
+            /* top: 0; */
+            /* z-index: 1020; */
+        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative; /* Changed from fixed for mobile */
+                z-index: auto;
+            }
+            .content, .navbar-custom {
+                margin-left: 0;
+            }
+            .navbar-custom {
+                 position: sticky; /* Make navbar sticky on mobile if sidebar is not fixed */
+                 top: 0;
+                 z-index: 1020;
+            }
+            .sidebar .nav {
+                flex-direction: row;
+                flex-wrap: nowrap; /* Prevent wrapping to allow scrolling */
+                overflow-x: auto; /* Allow horizontal scrolling for nav items */
+                justify-content: flex-start;
+            }
+            .sidebar .nav-item {
+                 flex-shrink: 0; /* Prevent items from shrinking */
+            }
+             .sidebar .nav-link {
+                white-space: nowrap; /* Prevent text wrapping in nav links */
+                padding: 0.5rem 0.75rem;
+            }
+            .sidebar .dropdown { /* Adjust dropdown for mobile */
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                padding-top: 0.5rem;
+                margin-top: 0.5rem;
+            }
+            .sidebar .d-flex.align-items-center.mb-3 { /* Adjust title spacing */
+                justify-content: center;
+            }
+            .sidebar hr {
+                display: none; /* Hide hr in mobile for cleaner look with horizontal nav */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column flex-shrink-0 p-3">
+        <a href="dashboard.html" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-light text-decoration-none">
+            <i class="bi bi-database-gear fs-4 me-2"></i>
+            <span class="fs-4">Admin Panel</span>
+        </a>
+        <hr class="link-light">
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="#" class="nav-link active" aria-current="page" data-bs-toggle="tab" data-bs-target="#home-tab-pane">
+                    <i class="bi bi-house-door-fill"></i>ภาพรวม
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#users-tab-pane">
+                    <i class="bi bi-people-fill"></i>จัดการผู้ใช้งาน
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#topics-tab-pane">
+                    <i class="bi bi-tags-fill"></i>จัดการหัวข้อ Import
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#permissions-tab-pane">
+                    <i class="bi bi-person-check-fill"></i>จัดการสิทธิ์
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#logs-system-tab-pane">
+                    <i class="bi bi-card-list"></i>System Logs
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#logs-import-tab-pane">
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i>Import Logs
+                </a>
+            </li>
+        </ul>
+        <hr class="link-light">
+        <div class="dropdown">
+            <a href="#" class="d-flex align-items-center link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle fs-4 me-2"></i>
+                <strong id="adminUsername">Admin</strong>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+                <li><a class="dropdown-item" href="#" id="logoutButton">ออกจากระบบ</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <main class="content">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4 shadow-sm navbar-custom">
+            <div class="container-fluid">
+                 <button class="navbar-toggler d-md-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <span class="navbar-brand" id="currentSectionTitle">ภาพรวม</span>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNavbar" aria-controls="topNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="topNavbar">
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <span class="navbar-text">
+                                User: <strong id="adminUsernameNav">Admin</strong>
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div id="globalAlertContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+                </div>
+
+
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="home-tab-pane" role="tabpanel" aria-labelledby="home-tab" tabindex="0">
+                </div>
+            <div class="tab-pane fade" id="users-tab-pane" role="tabpanel" aria-labelledby="users-tab" tabindex="0">
+                </div>
+            <div class="tab-pane fade" id="topics-tab-pane" role="tabpanel" aria-labelledby="topics-tab" tabindex="0">
+                </div>
+            <div class="tab-pane fade" id="permissions-tab-pane" role="tabpanel" aria-labelledby="permissions-tab" tabindex="0">
+                </div>
+            <div class="tab-pane fade" id="logs-system-tab-pane" role="tabpanel" aria-labelledby="logs-system-tab" tabindex="0">
+                </div>
+            <div class="tab-pane fade" id="logs-import-tab-pane" role="tabpanel" aria-labelledby="logs-import-tab" tabindex="0">
+                </div>
+        </div>
+    </main>
+    
+    <div class="offcanvas offcanvas-start bg-dark text-light" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">
+            <i class="bi bi-database-gear fs-4 me-2"></i>Admin Panel
+        </h5>
+        <button type="button" class="btn-close btn-close-white text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body d-flex flex-column p-0">
+        <ul class="nav nav-pills flex-column mb-auto p-3">
+            <li class="nav-item">
+                <a href="#" class="nav-link active" aria-current="page" data-bs-toggle="tab" data-bs-target="#home-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-house-door-fill"></i>ภาพรวม
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#users-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-people-fill"></i>จัดการผู้ใช้งาน
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#topics-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-tags-fill"></i>จัดการหัวข้อ Import
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#permissions-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-person-check-fill"></i>จัดการสิทธิ์
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#logs-system-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-card-list"></i>System Logs
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-bs-toggle="tab" data-bs-target="#logs-import-tab-pane" data-bs-dismiss="offcanvas">
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i>Import Logs
+                </a>
+            </li>
+        </ul>
+        <hr>
+        <div class="dropdown p-3">
+            <a href="#" class="d-flex align-items-center link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle fs-4 me-2"></i>
+                <strong id="adminUsernameOffcanvas">Admin</strong>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+                <li><a class="dropdown-item" href="#" id="logoutButtonOffcanvas">ออกจากระบบ</a></li>
+            </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Defensive checks for essential external functions
+            if (typeof isLoggedIn !== 'function' || typeof getUserRole !== 'function' || typeof logoutUser !== 'function') {
+                console.error('Essential authentication functions are not loaded. Halting dashboard initialization.');
+                $('body').html('<div class="alert alert-danger m-5" role="alert">เกิดข้อผิดพลาดในการโหลดสคริปต์สำคัญ กรุณาลองรีเฟรชหน้า หรือติดต่อผู้ดูแลระบบ (Admin Dashboard)</div>');
+                return;
+            }
+
+            if (!isLoggedIn() || getUserRole() !== 'admin') {
+                logoutUser();
+                return;
+            }
+
+            if (typeof getUsername === 'function') {
+                const currentAdminUsername = getUsername() || 'Admin';
+                $('#adminUsername').text(currentAdminUsername);
+                $('#adminUsernameNav').text(currentAdminUsername);
+                $('#adminUsernameOffcanvas').text(currentAdminUsername);
+            } else {
+                console.warn('getUsername function not found. Using default names for admin.');
+                $('#adminUsername, #adminUsernameNav, #adminUsernameOffcanvas').text('Admin (L)');
+            }
+
+
+            function updateActiveTab(target) {
+                const newTitle = $(target).text().trim();
+                $('#currentSectionTitle').text(newTitle);
+                $('.sidebar .nav-link, .offcanvas-body .nav-link').removeClass('active');
+                // Ensure correct target attribute is used for selection
+                const targetPane = $(target).attr('data-bs-target') || $(target).attr('href');
+                $(`.sidebar .nav-link[data-bs-target="${targetPane}"]`).addClass('active');
+                $(`.offcanvas-body .nav-link[data-bs-target="${targetPane}"]`).addClass('active');
+            }
+
+
+            $('.sidebar .nav-link, .offcanvas-body .nav-link').on('click', function(e) {
+                // Bootstrap handles tab switching.
+                // For offcanvas, data-bs-dismiss="offcanvas" on the link handles closing.
+            });
+            
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+                updateActiveTab(e.target); 
+            });
+
+
+            $('#logoutButton, #logoutButtonOffcanvas').on('click', function(e) {
+                e.preventDefault();
+                logoutUser();
+            });
+            
+             const initialActiveLink = $('.sidebar .nav-link.active');
+             if (initialActiveLink.length) {
+                 updateActiveTab(initialActiveLink[0]);
+             }
+        });
+    </script>
+</body>
+</html>

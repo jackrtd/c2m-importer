@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ผู้ใช้งาน - เข้าสู่ระบบ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet"> <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #e9ecef; /* Light grey background */
+            font-family: 'Sarabun', sans-serif;
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-card {
+            padding: 2rem;
+            border-radius: 0.5rem; /* from style.css */
+            background-color: #ffffff; /* from style.css */
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+        }
+        .login-card h2 {
+            font-weight: 300;
+        }
+        .btn-success { /* from style.css */
+             background-color: #198754; /* User panel theme color */
+             border-color: #198754;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="text-center mb-4">
+            <i class="bi bi-cloud-arrow-up-fill" style="font-size: 3rem; color: #198754;"></i>
+        </div>
+        <div class="card login-card">
+            <h2 class="text-center mb-4">ผู้ใช้งานทั่วไป</h2>
+            <form id="userLoginForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label">ชื่อผู้ใช้</label>
+                    <input type="text" class="form-control" id="username" name="username" required autocomplete="username">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">รหัสผ่าน</label>
+                    <input type="password" class="form-control" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-success w-100 mt-2">เข้าสู่ระบบ</button>
+                <div id="errorMessage" class="alert alert-danger mt-3 d-none py-2" role="alert"></div>
+            </form>
+            <div class="mt-3 text-center">
+                <small><a href="../index.html" class="text-secondary">กลับหน้าหลัก</a></small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Defensive checks for essential external functions
+            if (typeof isLoggedIn !== 'function' || typeof getUserRole !== 'function' || typeof loginUser !== 'function') {
+                console.error('Essential authentication functions are not loaded for user login page.');
+                $('#errorMessage').text('เกิดข้อผิดพลาดในการโหลดหน้า กรุณาลองใหม่').removeClass('d-none');
+                // Disable form if essential functions are missing
+                $('#userLoginForm button[type="submit"]').prop('disabled', true);
+                return;
+            }
+
+            if (isLoggedIn() && getUserRole() === 'user') {
+               window.location.href = 'dashboard.html';
+               return; 
+            }
+            if (isLoggedIn() && getUserRole() === 'admin') {
+                window.location.href = '../admin/dashboard.html';
+                return;
+            }
+
+
+            $('#userLoginForm').on('submit', function(e) {
+                e.preventDefault();
+                const username = $('#username').val();
+                const password = $('#password').val();
+                const $errorMessage = $('#errorMessage');
+                $errorMessage.addClass('d-none').text('');
+
+                loginUser(username, password, 'user',
+                    (data) => { 
+                        window.location.href = 'dashboard.html';
+                    },
+                    (errorMsg) => { 
+                        $errorMessage.text(errorMsg || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง').removeClass('d-none');
+                    }
+                );
+            });
+        });
+    </script>
+</body>
+</html>
